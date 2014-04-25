@@ -2,7 +2,13 @@ var express = require('express'),
   httpProxy = require('http-proxy'),
   passport = require('passport'),
   nconf = require('nconf'),
-  GoogleStrategy = require('passport-google-oauth').OAuth2Strategy;
+  GoogleStrategy = require('passport-google-oauth').OAuth2Strategy,
+  morgan  = require('morgan'),
+  cookieParser = require('cookie-parser'),
+  session = require('express-session'),
+  RedisStore = require('connect-redis')(session);
+
+var sessionStore = new RedisStore();
 
 // load the configuration
 nconf.argv()
@@ -40,32 +46,31 @@ passport.use(new GoogleStrategy({
 
 function isAuthorized(req, user) {
   // Override me for your own need!
-  var domain = nconf.get('domain');
-  var pattern = new RegExp('.*@' + domain.replace('.', '\\.'));
-  return user && user.email.match(pattern);
+  //var domain = nconf.get('domain');
+  //var pattern = new RegExp('.*@' + domain.replace('.', '\\.'));
+  //return user && user.email.match(pattern);
+  var userAllowList = nconf.get('user_allow').split(',');
+  return user && (userAllowList.indexOf(user.email)>-1);
 }
 
 // Setup express application
-var proxy = new httpProxy.RoutingProxy();
+//var proxy = new httpProxy.RoutingProxy();
+var proxy = httpProxy.createProxyServer({});
+
 var app = express()
-  .use(express.logger())
-  .use(express.cookieParser())
-  .use(express.session({secret: nconf.get('session_secret')}))
+  .use(morgan())
+  .use(cookieParser('Time is money!!!'))
+  .use(session({
+    secret: nconf.get('session_secret'),
+    store: sessionStore,
+    key: 'mySes'
+  }))
   .use(passport.initialize())
   .use(passport.session());
 
-app.configure(function() {
-  app.use(app.router);
-  // proxy to TW5 as fallback.
-  app.use(function(req, res) {
-    proxy.proxyRequest(req, res, {
-      host: nconf.get('tw5_host'),
-      port: nconf.get('tw5_port')
-    });
-  });
-});
 
 // Router
+
 app.get('/auth/google',
   passport.authenticate('google', {
     scope: [
@@ -90,14 +95,24 @@ app.get('/logout', function(req, res){
 });
 
 app.all('/*', function(req, res, next) {
-  if (req.method == 'GET' || req.method == 'HEAD' || (
-      req.isAuthenticated() &&
-      isAuthorized(req, req.user))) {
+  var user = req.user;
+  var isAuth = isAuthorized(req, user) && req.isAuthenticated();
+//  console.log(req.user, isAuth)
+//  if (req.method == 'GET' || req.method == 'HEAD' || (user && isAuth)) {
+  if (user && isAuth) {
     return next();
+  } else if(!user) {
+    res.redirect('/auth/google');
   } else {
     res.send(401);
   }
 });
 
+app.all('/*', function (request, response) {
+    "use strict";
+    return proxy.web(request, response, {
+        target: 'http://' + nconf.get('tw5_host') + ':' + nconf.get('tw5_port')
+    });
+});
 
 app.listen(nconf.get('port'), nconf.get('host'));

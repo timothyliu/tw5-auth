@@ -8,7 +8,11 @@
     "passport": "*",
     "passport-google-oauth": "*",
     "http-proxy": "*",
-    "nconf": "*"
+    "nconf": "*",
+    "cookie-parser": "*",
+    "morgan": "*",
+    "express-session": "*",
+    "connect-redis": "*"
   },
   "repository": {
     "type": "git",
