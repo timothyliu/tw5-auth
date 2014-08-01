@@ -5,10 +5,10 @@ var express = require('express'),
   GoogleStrategy = require('passport-google-oauth').OAuth2Strategy,
   morgan  = require('morgan'),
   cookieParser = require('cookie-parser'),
-  session = require('express-session'),
-  RedisStore = require('connect-redis')(session);
+  session = require('express-session');
+  //RedisStore = require('connect-redis')(session);
 
-var sessionStore = new RedisStore();
+//var sessionStore = new RedisStore();
 
 // load the configuration
 nconf.argv()
@@ -38,7 +38,7 @@ passport.use(new GoogleStrategy({
   }, function(accessToken, refreshToken, profile, done) {
     // Hint: find or create the user in the DB
     // asynchronous verification, for effect...
-    process.nextTick(function () {
+		process.nextTick(function () {
       return done(null, profile);
     });
   })
@@ -46,24 +46,21 @@ passport.use(new GoogleStrategy({
 
 function isAuthorized(req, user) {
   // Override me for your own need!
-  //var domain = nconf.get('domain');
-  //var pattern = new RegExp('.*@' + domain.replace('.', '\\.'));
-  //return user && user.email.match(pattern);
-  var userAllowList = nconf.get('user_allow').split(',');
-  return user && (userAllowList.indexOf(user.email)>-1);
+  var domain = nconf.get('domain');
+  var pattern = new RegExp('.*@' + domain.replace('.', '\\.'));
+ 	return user && user.email.match(pattern);
+  //var userAllowList = nconf.get('user_allow').split(',');
+  //return user && (userAllowList.indexOf(user.email)>-1);
 }
 
 // Setup express application
-//var proxy = new httpProxy.RoutingProxy();
 var proxy = httpProxy.createProxyServer({});
 
 var app = express()
   .use(morgan())
   .use(cookieParser('Time is money!!!'))
   .use(session({
-    secret: nconf.get('session_secret'),
-    store: sessionStore,
-    key: 'mySes'
+    secret: nconf.get('session_secret')
   }))
   .use(passport.initialize())
   .use(passport.session());
@@ -95,22 +92,22 @@ app.get('/logout', function(req, res){
 });
 
 app.all('/*', function(req, res, next) {
-  var user = req.user;
-  var isAuth = isAuthorized(req, user) && req.isAuthenticated();
-//  console.log(req.user, isAuth)
-//  if (req.method == 'GET' || req.method == 'HEAD' || (user && isAuth)) {
+	var user = req.user;
+	var isAuth = isAuthorized(req, user) && req.isAuthenticated();
   if (user && isAuth) {
     return next();
   } else if(!user) {
     res.redirect('/auth/google');
   } else {
-    res.send(401);
+    res.send(401,'Unauthorized: Log out of the Google Account you signed in with from another window, then delete the cookie for this page and try again. To delete the cookie in Chrome, load up the developer tools and select Resources. In the left-hand panel, choose Cookies. Delete the cookie called connect.sid. Refresh the page and login using your decoded.co Google Account.');
   }
 });
 
 app.all('/*', function (request, response) {
-    "use strict";
-    return proxy.web(request, response, {
+    
+		"use strict";
+    console.log(request);
+		return proxy.web(request, response, {
         target: 'http://' + nconf.get('tw5_host') + ':' + nconf.get('tw5_port')
     });
 });
