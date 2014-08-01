@@ -6,9 +6,6 @@ var express = require('express'),
   morgan  = require('morgan'),
   cookieParser = require('cookie-parser'),
   session = require('express-session');
-  //RedisStore = require('connect-redis')(session);
-
-//var sessionStore = new RedisStore();
 
 // load the configuration
 nconf.argv()
@@ -92,8 +89,8 @@ app.get('/logout', function(req, res){
 });
 
 app.all('/*', function(req, res, next) {
-	var user = req.user;
-	var isAuth = isAuthorized(req, user) && req.isAuthenticated();
+  var user = req.user;
+  var isAuth = isAuthorized(req, user) && req.isAuthenticated();
   if (user && isAuth) {
     return next();
   } else if(!user) {
@@ -104,12 +101,10 @@ app.all('/*', function(req, res, next) {
 });
 
 app.all('/*', function (request, response) {
-    
-		"use strict";
-    console.log(request);
-		return proxy.web(request, response, {
-        target: 'http://' + nconf.get('tw5_host') + ':' + nconf.get('tw5_port')
-    });
+  "use strict";
+  console.log(request);
+  return proxy.web(request, response, {
+    target: 'http://' + nconf.get('tw5_host') + ':' + nconf.get('tw5_port')
+  });
 });
-
 app.listen(nconf.get('port'), nconf.get('host'));
